@@ -96,42 +96,66 @@
 
 <script>
   var v = document.getElementById('v');
+  var bg = document.getElementById('bg');
+  var frame = null;           // YouTube保険用iframe
+  var EVENTS = ['pointerdown','mousedown','click','touchstart','touchend','keydown','wheel','scroll'];
+
   v.controls = false;
-  // 字幕トラックは全て無効化
   Array.prototype.forEach.call(v.textTracks, function (t) { t.mode = 'disabled'; });
+
+  function yt(fn, args) {
+    if (frame && frame.contentWindow) {
+      frame.contentWindow.postMessage(JSON.stringify({ event: 'command', func: fn, args: args || [] }), '*');
+    }
+  }
+
+  // 最初のユーザー操作で音を出す（video / YouTube どちらでも動く）
+  function unmuteAll() {
+    if (frame) {
+      yt('unMute'); yt('setVolume', [100]);
+    } else {
+      v.muted = false;
+      v.volume = 1;
+      var pr = v.play();
+      if (pr && pr.catch) pr.catch(function () {});
+    }
+    // video側は実際にミュートが外れたことを確認できてからリスナーを外す
+    if (frame || !v.muted) {
+      EVENTS.forEach(function (t) { window.removeEventListener(t, unmuteAll, true); });
+    }
+  }
+  EVENTS.forEach(function (t) {
+    window.addEventListener(t, unmuteAll, { capture: true, passive: true });
+  });
 
   // 1) まず音ありで自動再生を試す
   v.muted = false;
   v.volume = 1;
   var p = v.play();
-  if (p && p.catch) {
-    p.catch(function () {
-      // 2) ブラウザにブロックされたら無音で再生開始し、最初の操作で音を出す
+  if (p && p.then) {
+    p.then(function () {
+      // 音つき再生に成功したのでリスナーは不要
+      if (!v.muted) EVENTS.forEach(function (t) { window.removeEventListener(t, unmuteAll, true); });
+    }).catch(function () {
+      // 2) ブロックされたら無音で再生開始 → 最初の操作で unmuteAll が音を出す
       v.muted = true;
-      v.play();
-      var go = function () {
-        v.muted = false;
-        v.volume = 1;
-        v.play();
-        ['pointerdown','click','touchend','keydown','wheel','scroll'].forEach(function (t) {
-          window.removeEventListener(t, go, true);
-        });
-      };
-      ['pointerdown','click','touchend','keydown','wheel','scroll'].forEach(function (t) {
-        window.addEventListener(t, go, { capture: true, passive: true });
-      });
+      v.play().catch(function () {});
     });
   }
 
   // 動画ファイルが無い場合の保険: YouTube埋め込みに切り替える（UIは完全には消せません）
   v.addEventListener('error', function () {
-    var f = document.createElement('iframe');
-    f.src = 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&modestbranding=1&rel=0&iv_load_policy=3&cc_load_policy=0&playsinline=1&loop=1&playlist=dQw4w9WgXcQ';
-    f.allow = 'autoplay; encrypted-media';
-    f.tabIndex = -1;
-    f.setAttribute('aria-hidden', 'true');
-    f.style.cssText = 'position:absolute;top:50%;left:50%;width:max(100vw,177.78vh);height:max(56.25vw,100vh);transform:translate(-50%,-50%);border:0;pointer-events:none';
-    document.getElementById('bg').replaceChild(f, v);
+    frame = document.createElement('iframe');
+    frame.src = 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&modestbranding=1&rel=0&iv_load_policy=3&cc_load_policy=0&playsinline=1&loop=1&playlist=dQw4w9WgXcQ&enablejsapi=1';
+    frame.allow = 'autoplay; encrypted-media';
+    frame.tabIndex = -1;
+    frame.setAttribute('aria-hidden', 'true');
+    frame.style.cssText = 'position:absolute;top:50%;left:50%;width:max(100vw,177.78vh);height:max(56.25vw,100vh);transform:translate(-50%,-50%);border:0;pointer-events:none';
+    bg.replaceChild(frame, v);
+    // 切り替え後もう一度操作を待つ
+    EVENTS.forEach(function (t) {
+      window.addEventListener(t, unmuteAll, { capture: true, passive: true });
+    });
   }, true);
 </script>
 </body>
