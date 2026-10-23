@@ -12,27 +12,33 @@
     background: #000;
     font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
   }
-
-  /* aaaaa背景動画: 画面全体を覆う (object-fit: cover 相当) */
   .bg {
     position: fixed;
     inset: 0;
-    overflow: hidden;
     z-index: 0;
-    pointer-events: none;   /* クリック・ホバーでYouTubeのUIが出ないようにする */
-  }
-  .bg iframe {
-    position: absolute;
-    top: 50%;
-    left: 50%;
-    width: max(100vw, 177.78vh);
-    height: max(56.25vw, 100vh);
-    transform: translate(-50%, -50%);
-    border: 0;
+    overflow: hidden;
     pointer-events: none;
   }
+  /* 背景動画: 画面全体を覆う */
+  #v {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    pointer-events: none;
+  }
+  /* 念のため、再生ボタン等のネイティブUIを全て隠す */
+  #v::-webkit-media-controls,
+  #v::-webkit-media-controls-panel,
+  #v::-webkit-media-controls-play-button,
+  #v::-webkit-media-controls-start-playback-button,
+  #v::-webkit-media-controls-overlay-play-button {
+    display: none !important;
+    -webkit-appearance: none;
+  }
+  #v::cue { display: none; }
 
-  /* 文字を読みやすくするための薄い暗幕 */
   .shade {
     position: fixed;
     inset: 0;
@@ -40,7 +46,6 @@
     background: rgba(0, 0, 0, .35);
     pointer-events: none;
   }
-
   .msg {
     position: fixed;
     inset: 0;
@@ -68,28 +73,18 @@
     line-height: 1.6;
     font-weight: 600;
   }
-
-  /* 全面タップで音を出す（ブラウザは自動再生を無音に制限するため） */
-  .tap {
-    position: fixed;
-    inset: 0;
-    z-index: 3;
-    cursor: default;
-    background: transparent;
-  }
+  /* 全面を覆って一切の操作を動画に触れさせない */
+  .block { position: fixed; inset: 0; z-index: 3; }
 </style>
 </head>
 <body>
 
-<div class="bg">
-  <iframe
-    id="yt"
-    src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&loop=1&playlist=dQw4w9WgXcQ&enablejsapi=1&cc_load_policy=0"
-    allow="autoplay; encrypted-media"
-    referrerpolicy="strict-origin-when-cross-origin"
-    tabindex="-1"
-    aria-hidden="true"
-    title="background video"></iframe>
+<div class="bg" id="bg">
+  <!-- rickroll.mp4 を index.html と同じフォルダに置く -->
+  <video id="v" src="rickroll.mp4" autoplay loop playsinline
+         disablepictureinpicture disableremoteplayback
+         controlslist="nodownload nofullscreen noremoteplayback"
+         tabindex="-1" aria-hidden="true"></video>
 </div>
 <div class="shade"></div>
 
@@ -97,28 +92,47 @@
   <h1>あれ?読み込めば金もらえると思った?<br>残念だったね</h1>
   <p>このQRを読むと某有名えrサイト<br>(FA⭕️ZA PR⭕️NHUB)にリダイレクトされるようになってるんだ^^</p>
 </div>
-
-<div class="tap" id="tap"></div>
+<div class="block"></div>
 
 <script>
-  // 最初のクリック/タップで音声をオンにする（IFrame APIをpostMessageで直接操作）
-  var yt = document.getElementById('yt');
-  var done = false;
-  function unmute() {
-    if (done) return;
-    done = true;
-    // 再生状態は触らず、ミュート解除だけ送る（再生/停止ボタンのオーバーレイを出さないため）
-    yt.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
-    yt.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
-    ['pointerdown', 'click', 'touchend', 'keydown', 'wheel'].forEach(function (t) {
-      window.removeEventListener(t, unmute, true);
+  var v = document.getElementById('v');
+  v.controls = false;
+  // 字幕トラックは全て無効化
+  Array.prototype.forEach.call(v.textTracks, function (t) { t.mode = 'disabled'; });
+
+  // 1) まず音ありで自動再生を試す
+  v.muted = false;
+  v.volume = 1;
+  var p = v.play();
+  if (p && p.catch) {
+    p.catch(function () {
+      // 2) ブラウザにブロックされたら無音で再生開始し、最初の操作で音を出す
+      v.muted = true;
+      v.play();
+      var go = function () {
+        v.muted = false;
+        v.volume = 1;
+        v.play();
+        ['pointerdown','click','touchend','keydown','wheel','scroll'].forEach(function (t) {
+          window.removeEventListener(t, go, true);
+        });
+      };
+      ['pointerdown','click','touchend','keydown','wheel','scroll'].forEach(function (t) {
+        window.addEventListener(t, go, { capture: true, passive: true });
+      });
     });
   }
-  // 最初のユーザー操作（クリック・タップ・キー・スクロール）ならなんでも音を出す
-  ['pointerdown', 'click', 'touchend', 'keydown', 'wheel'].forEach(function (t) {
-    window.addEventListener(t, unmute, { capture: true, passive: true });
-  });
-  // 操作を遮るレイヤーはそのまま（iframeには一切触れさせない）
+
+  // 動画ファイルが無い場合の保険: YouTube埋め込みに切り替える（UIは完全には消せません）
+  v.addEventListener('error', function () {
+    var f = document.createElement('iframe');
+    f.src = 'https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&modestbranding=1&rel=0&iv_load_policy=3&cc_load_policy=0&playsinline=1&loop=1&playlist=dQw4w9WgXcQ';
+    f.allow = 'autoplay; encrypted-media';
+    f.tabIndex = -1;
+    f.setAttribute('aria-hidden', 'true');
+    f.style.cssText = 'position:absolute;top:50%;left:50%;width:max(100vw,177.78vh);height:max(56.25vw,100vh);transform:translate(-50%,-50%);border:0;pointer-events:none';
+    document.getElementById('bg').replaceChild(f, v);
+  }, true);
 </script>
 </body>
 </html>
