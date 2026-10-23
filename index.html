@@ -1,200 +1,119 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Warning System</title>
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <style>
-        /* Retro Pixel Font */
-        @import url('https://fonts.googleapis.com/css2?family=DotGothic16&display=swap');
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>…</title>
+<style>
+  html, body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: #000;
+    font-family: "Hiragino Kaku Gothic ProN", "Yu Gothic", Meiryo, sans-serif;
+  }
 
-        html, body {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            background-color: #000000;
-            font-family: 'DotGothic16', monospace;
-            user-select: none;
-        }
+  /* 背景動画: 画面全体を覆う (object-fit: cover 相当) */
+  .bg {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+    z-index: 0;
+    pointer-events: none;   /* クリック・ホバーでYouTubeのUIが出ないようにする */
+  }
+  .bg iframe {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: max(100vw, 177.78vh);
+    height: max(56.25vw, 100vh);
+    transform: translate(-50%, -50%);
+    border: 0;
+    pointer-events: none;
+  }
 
-        /* Responsive full-bleed container hiding all outer edges & lines */
-        .video-wrapper {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            overflow: hidden;
-            z-index: 0;
-            pointer-events: none;
-            background-color: #000;
-        }
+  /* 文字を読みやすくするための薄い暗幕 */
+  .shade {
+    position: fixed;
+    inset: 0;
+    z-index: 1;
+    background: rgba(0, 0, 0, .35);
+    pointer-events: none;
+  }
 
-        /* 
-           Scales iframe far beyond 100% viewport dimensions to guarantee 
-           zero black bars, lines, borders, titles, or UI elements on any aspect ratio
-        */
-        .video-wrapper iframe {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            width: 150vw;
-            height: 84.375vw; /* 16:9 ratio of 150vw */
-            min-height: 150vh;
-            min-width: 266.66vh; /* 16:9 ratio of 150vh */
-            transform: translate(-50%, -50%) scale(1.3);
-            pointer-events: none;
-            border: none;
-            outline: none;
-            box-shadow: none;
-        }
+  .msg {
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1.2em;
+    padding: 0 6vw;
+    text-align: center;
+    color: #fff;
+    text-shadow: 0 2px 12px rgba(0, 0, 0, .8);
+    pointer-events: none;
+  }
+  .msg h1 {
+    margin: 0;
+    font-size: clamp(22px, 4.6vw, 56px);
+    line-height: 1.4;
+    font-weight: 800;
+  }
+  .msg p {
+    margin: 0;
+    font-size: clamp(16px, 2.6vw, 30px);
+    line-height: 1.6;
+    font-weight: 600;
+  }
 
-        /* Retro text formatting with multi-directional shadow for sharp legibility */
-        .retro-text {
-            color: #ffff00;
-            text-shadow: 
-                3px 3px 0 #000000,
-                -3px -3px 0 #000000,
-                3px -3px 0 #000000,
-                -3px 3px 0 #000000,
-                0px 0px 18px rgba(0, 0, 0, 0.95);
-            line-height: 1.5;
-            letter-spacing: 0.04em;
-            word-break: break-word;
-        }
-
-        /* Fullscreen invisible trigger zone guaranteeing unmuted playback on any click */
-        #startTrigger {
-            position: fixed;
-            top: 0;
-            left: 0;
-            width: 100vw;
-            height: 100vh;
-            z-index: 50;
-            cursor: pointer;
-            display: flex;
-            align-items: flex-end;
-            justify-content: center;
-            padding-bottom: 2rem;
-            background: transparent;
-        }
-    </style>
+  /* 全面タップで音を出す（ブラウザは自動再生を無音に制限するため） */
+  .tap {
+    position: fixed;
+    inset: 0;
+    z-index: 3;
+    cursor: default;
+    background: transparent;
+  }
+</style>
 </head>
-<body class="flex items-center justify-center min-h-screen relative text-center">
+<body>
 
-    <!-- Zero-border Fullscreen Video Wrapper -->
-    <div class="video-wrapper">
-        <div id="player"></div>
-    </div>
+<div class="bg">
+  <iframe
+    id="yt"
+    src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&disablekb=1&fs=0&modestbranding=1&rel=0&iv_load_policy=3&playsinline=1&loop=1&playlist=dQw4w9WgXcQ&enablejsapi=1&cc_load_policy=0"
+    allow="autoplay; encrypted-media"
+    referrerpolicy="strict-origin-when-cross-origin"
+    tabindex="-1"
+    aria-hidden="true"
+    title="background video"></iframe>
+</div>
+<div class="shade"></div>
 
-    <!-- Text Layer (Direct text without frames/borders/boxes) -->
-    <div class="relative z-10 px-6 max-w-5xl mx-auto flex flex-col items-center justify-center min-h-screen pointer-events-none">
-        <h1 class="retro-text text-2xl sm:text-4xl md:text-5xl font-bold leading-tight my-auto">
-            あれ?読み込めば金もらえると思った?残念だったね このqrを読むと棒有名えrサイト(FA⭕️ZA PR⭕️NHUB)にリダイレクトされるようになってるんだ^^
-        </h1>
-    </div>
+<div class="msg">
+  <h1>あれ?読み込めば金もらえると思った?<br>残念だったね</h1>
+  <p>このQRを読むと某有名えrサイト<br>(FA⭕️ZA PR⭕️NHUB)にリダイレクトされるようになってるんだ^^</p>
+</div>
 
-    <!-- Invisible Fullscreen Tap-to-Unmute Layer (Fallthrough trigger for browser autoplay rules) -->
-    <div id="startTrigger">
-        <div id="clickPrompt" class="text-white bg-black/80 px-4 py-2 rounded border border-yellow-400 text-sm sm:text-base animate-pulse">
-            🔊 画面をタップ/クリックして音声をスタート
-        </div>
-    </div>
+<div class="tap" id="tap"></div>
 
-    <!-- YouTube API Embed -->
-    <script src="https://www.youtube.com/iframe_api"></script>
-    <script>
-        let player;
-        let isAudioActivated = false;
-
-        function onYouTubeIframeAPIReady() {
-            player = new YT.Player('player', {
-                videoId: 'dQw4w9WgXcQ',
-                playerVars: {
-                    'autoplay': 1,
-                    'controls': 0,
-                    'disablekb': 1,
-                    'fs': 0,
-                    'iv_load_policy': 3,
-                    'cc_load_policy': 0,
-                    'cc_lang_pref': 'none',
-                    'modestbranding': 1,
-                    'rel': 0,
-                    'showinfo': 0,
-                    'loop': 1,
-                    'playlist': 'dQw4w9WgXcQ',
-                    'playsinline': 1,
-                    'enablejsapi': 1,
-                    'origin': window.location.origin
-                },
-                events: {
-                    'onReady': onPlayerReady,
-                    'onStateChange': onPlayerStateChange
-                }
-            });
-        }
-
-        function onPlayerReady(event) {
-            // Unload captions dynamically if loaded
-            try {
-                event.target.unloadModule("captions");
-            } catch (e) {}
-
-            // Attempt unmuted auto-play immediately
-            event.target.unMute();
-            event.target.setVolume(100);
-            
-            const promise = event.target.playVideo();
-            
-            // If browser autoplay policy allows audio directly, hide prompt immediately
-            if (promise !== undefined) {
-                promise.then(() => {
-                    if (!event.target.isMuted()) {
-                        hidePrompt();
-                    }
-                }).catch(() => {
-                    // Browser prevented unmuted autoplay; fallback to muted + user tap trigger
-                    event.target.mute();
-                    event.target.playVideo();
-                });
-            }
-        }
-
-        function onPlayerStateChange(event) {
-            if (event.data === YT.PlayerState.ENDED) {
-                player.playVideo();
-            }
-        }
-
-        function hidePrompt() {
-            const trigger = document.getElementById('startTrigger');
-            if (trigger) {
-                trigger.style.display = 'none';
-            }
-        }
-
-        // Global trigger handling for guaranteed audio activation on load/tap
-        function activateAudio() {
-            if (isAudioActivated) return;
-            if (player && typeof player.unMute === 'function') {
-                player.unMute();
-                player.setVolume(100);
-                player.playVideo();
-                isAudioActivated = true;
-                hidePrompt();
-            }
-        }
-
-        // Bind interactive triggers across entire screen
-        const triggerEl = document.getElementById('startTrigger');
-        triggerEl.addEventListener('click', activateAudio);
-        triggerEl.addEventListener('touchstart', activateAudio);
-        window.addEventListener('click', activateAudio);
-        window.addEventListener('keydown', activateAudio);
-    </script>
+<script>
+  // 最初のクリック/タップで音声をオンにする（IFrame APIをpostMessageで直接操作）
+  var yt = document.getElementById('yt');
+  function cmd(fn) {
+    yt.contentWindow.postMessage(JSON.stringify({ event: 'command', func: fn, args: [] }), '*');
+  }
+  function unmute() {
+    cmd('unMute');
+    cmd('setVolume');
+    cmd('playVideo');
+    document.getElementById('tap').remove();
+  }
+  document.getElementById('tap').addEventListener('click', unmute, { once: true });
+  document.getElementById('tap').addEventListener('touchstart', unmute, { once: true, passive: true });
+</script>
 </body>
 </html>
