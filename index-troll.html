@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Warning System</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* Classic Retro Pixel Font Import */
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&family=VT323&family=DotGothic16&display=swap');
+
+        body {
+            font-family: 'DotGothic16', 'VT323', monospace;
+            background-color: #000000;
+            overflow: hidden;
+            margin: 0;
+            padding: 0;
+            user-select: none;
+        }
+
+        /* Fullscreen Video Wrapper */
+        .video-background {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            z-index: -1;
+            pointer-events: none;
+            overflow: hidden;
+        }
+
+        /* Ensure iframe covers the entire screen while maintaining aspect ratio */
+        .video-background iframe {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            width: 100vw;
+            height: 56.25vw; /* 16:9 ratio */
+            min-height: 100vh;
+            min-width: 177.77vh; /* 16:9 ratio */
+            transform: translate(-50%, -50%);
+        }
+
+        /* High-contrast Classic Retro Text Styling */
+        .retro-text {
+            color: #ffff00; /* Classic high-contrast yellow */
+            text-shadow: 
+                3px 3px 0px #000000,
+                -3px -3px 0px #000000,
+                3px -3px 0px #000000,
+                -3px 3px 0px #000000,
+                0px 4px 10px rgba(0, 0, 0, 0.9);
+            line-height: 1.6;
+            letter-spacing: 0.05em;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen p-6">
+
+    <!-- Fullscreen Video Background (No Controls, No UI, Pointer Events None) -->
+    <div class="video-background">
+        <iframe 
+            src="https://www.youtube.com/embed/dQw4w9WgXcQ?autoplay=1&mute=1&controls=0&loop=1&playlist=dQw4w9WgXcQ&disablekb=1&modestbranding=1&rel=0&enablejsapi=1" 
+            frameborder="0" 
+            allow="autoplay; encrypted-media" 
+            allowfullscreen>
+        </iframe>
+    </div>
+
+    <!-- Scanline Overlay Effect for retro aesthetic -->
+    <div class="fixed inset-0 bg-black bg-opacity-30 pointer-events-none"></div>
+
+    <!-- Centered Plain Retro Text Only (No Containers, No Boxes, No Borders) -->
+    <div class="z-10 max-w-4xl text-center">
+        <p class="retro-text text-2xl md:text-4xl lg:text-5xl font-bold">
+            アレ?読み込めば金もらえると思った?残念だったね このqrを読むと棒有名えrサイト(FA⭕️ZA PR⭕️NHUB)にリダイレクトされるようになってるんだ^^
+        </p>
+    </div>
+
+</body>
+</html>
