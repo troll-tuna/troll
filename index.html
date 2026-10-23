@@ -103,17 +103,22 @@
 <script>
   // 最初のクリック/タップで音声をオンにする（IFrame APIをpostMessageで直接操作）
   var yt = document.getElementById('yt');
-  function cmd(fn) {
-    yt.contentWindow.postMessage(JSON.stringify({ event: 'command', func: fn, args: [] }), '*');
-  }
+  var done = false;
   function unmute() {
-    cmd('unMute');
-    cmd('setVolume');
-    cmd('playVideo');
-    document.getElementById('tap').remove();
+    if (done) return;
+    done = true;
+    // 再生状態は触らず、ミュート解除だけ送る（再生/停止ボタンのオーバーレイを出さないため）
+    yt.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'unMute', args: [] }), '*');
+    yt.contentWindow.postMessage(JSON.stringify({ event: 'command', func: 'setVolume', args: [100] }), '*');
+    ['pointerdown', 'click', 'touchend', 'keydown', 'wheel'].forEach(function (t) {
+      window.removeEventListener(t, unmute, true);
+    });
   }
-  document.getElementById('tap').addEventListener('click', unmute, { once: true });
-  document.getElementById('tap').addEventListener('touchstart', unmute, { once: true, passive: true });
+  // 最初のユーザー操作（クリック・タップ・キー・スクロール）ならなんでも音を出す
+  ['pointerdown', 'click', 'touchend', 'keydown', 'wheel'].forEach(function (t) {
+    window.addEventListener(t, unmute, { capture: true, passive: true });
+  });
+  // 操作を遮るレイヤーはそのまま（iframeには一切触れさせない）
 </script>
 </body>
 </html>
